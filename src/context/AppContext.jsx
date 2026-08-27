@@ -39,6 +39,11 @@ export const AppProvider = ({ children }) => {
   const [ttsSpeaking, setTtsSpeaking] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [bhashiniApiKey, setBhashiniApiKey] = useState(null);
+  const [scenarioParams, setScenarioParams] = useState({
+    holdDays: 7,
+    fuelRate: 95,
+    rainImpact: 'high'
+  });
 
   const activeCropIntel = CROP_INTELLIGENCE_BASE[selectedCrop.id] || CROP_INTELLIGENCE_BASE.tomato;
   const activePriceForecast = generateCropPriceForecastSeries(selectedCrop.currentPrice);
@@ -47,14 +52,12 @@ export const AppProvider = ({ children }) => {
   const speakText = async (text) => {
     if (!text) return;
     
-    // Stop any ongoing speech first
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
 
     setTtsSpeaking(true);
 
-    // Attempt Bhashini API if Key is provided
     if (bhashiniApiKey) {
       const res = await synthesizeTextWithBhashini(text, language, bhashiniApiKey);
       if (res.isPlayed) {
@@ -63,7 +66,6 @@ export const AppProvider = ({ children }) => {
       }
     }
 
-    // Native Web Speech API Synthesis
     if ('speechSynthesis' in window) {
       try {
         const utterance = new SpeechSynthesisUtterance(text);
