@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { CROPS, LOCATIONS, SAMPLE_QUERIES, RECOMMENDATION_DATA } from '../data/mockData';
+import { CROPS, LOCATIONS, SAMPLE_QUERIES } from '../data/mockData';
+import { CROP_INTELLIGENCE_BASE, generateCropPriceForecastSeries } from '../services/realtimeAgriEngine';
 
 const AppContext = createContext();
 
@@ -19,6 +20,22 @@ export const AppProvider = ({ children }) => {
     fuelRate: 95,
     rainImpact: 'high'
   });
+
+  // Get active crop intelligence dynamically
+  const activeCropIntel = CROP_INTELLIGENCE_BASE[selectedCrop.id] || CROP_INTELLIGENCE_BASE.tomato;
+  const activePriceForecast = generateCropPriceForecastSeries(selectedCrop.currentPrice);
+
+  // Update transcript when crop changes
+  useEffect(() => {
+    const cropName = language === 'mr' ? selectedCrop.nameMr : language === 'hi' ? selectedCrop.nameHi : selectedCrop.nameEn;
+    if (language === 'mr') {
+      setTranscript(`${cropName} आता विकू का थांबू?`);
+    } else if (language === 'hi') {
+      setTranscript(`क्या मुझे ${cropName} अभी बेचना चाहिए या रुकना चाहिए?`);
+    } else {
+      setTranscript(`Should I sell my ${cropName.toLowerCase()} crop now or wait?`);
+    }
+  }, [selectedCrop, language]);
 
   // Handle TTS Voice Synthesis
   const speakText = (text) => {
@@ -51,7 +68,6 @@ export const AppProvider = ({ children }) => {
     setIsRecording(true);
     stopTts();
     
-    // Check if real Web Speech API is supported
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       try {
@@ -85,12 +101,8 @@ export const AppProvider = ({ children }) => {
   };
 
   const simulateVoiceFallback = () => {
-    // Simulated voice recording countdown
     setTimeout(() => {
       setIsRecording(false);
-      const query = SAMPLE_QUERIES[0];
-      const text = language === 'mr' ? query.textMr : language === 'hi' ? query.textHi : query.textEn;
-      setTranscript(text);
       runAiAnalysis();
     }, 2500);
   };
@@ -104,18 +116,17 @@ export const AppProvider = ({ children }) => {
     setProcessingStep(1);
 
     const stepTimers = [
-      setTimeout(() => setProcessingStep(2), 700),  // Language & Crop Identification
-      setTimeout(() => setProcessingStep(3), 1400), // Mandi & GIS Price Check
-      setTimeout(() => setProcessingStep(4), 2100), // Climate & Supply Risk
-      setTimeout(() => setProcessingStep(5), 2800), // AI Decision Synthesis
+      setTimeout(() => setProcessingStep(2), 700),  
+      setTimeout(() => setProcessingStep(3), 1400), 
+      setTimeout(() => setProcessingStep(4), 2100), 
+      setTimeout(() => setProcessingStep(5), 2800), 
       setTimeout(() => {
         setIsProcessing(false);
-        setActiveTab('recommendation'); // Automatically jump to recommendation screen!
+        setActiveTab('recommendation'); 
+        const cropName = language === 'mr' ? selectedCrop.nameMr : selectedCrop.nameEn;
         const spokenRec = language === 'mr' 
-          ? "शेतमित्र एआय शिफारस: टोमॅटो ५ ते ७ दिवस थांबवून विका. अंदाजे दर वाढ ४५० रुपये प्रति क्विंटल होईल." 
-          : language === 'hi' 
-          ? "शेतमित्र एआई सलाह: टमाटर ५ से ७ दिन रुककर बेचें। अनुमानित मूल्य वृद्धि ४५० रुपये प्रति क्विंटल होगी।"
-          : "ShetMitra AI Recommendation: Hold tomatoes for 5 to 7 days before selling. Expected price gain is 450 rupees per quintal.";
+          ? `शेतमित्र एआय सल्ला: ${cropName} पिकासाठी ${activeCropIntel.decisionMr}` 
+          : `ShetMitra AI Recommendation for ${cropName}: ${activeCropIntel.decisionEn}`;
         speakText(spokenRec);
       }, 3500)
     ];
@@ -123,11 +134,10 @@ export const AppProvider = ({ children }) => {
     return () => stepTimers.forEach(clearTimeout);
   };
 
-  // Run Complete Interactive Demo Journey
   const runFullDemoJourney = () => {
     setDemoMode(true);
     setActiveTab('voice-intel');
-    runAiAnalysis(SAMPLE_QUERIES[0].textMr);
+    runAiAnalysis();
   };
 
   return (
@@ -154,7 +164,9 @@ export const AppProvider = ({ children }) => {
       ttsSpeaking,
       scenarioParams,
       setScenarioParams,
-      demoMode
+      demoMode,
+      activeCropIntel,
+      activePriceForecast
     }}>
       {children}
     </AppContext.Provider>
