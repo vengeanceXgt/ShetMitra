@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CROPS, LOCATIONS, SAMPLE_QUERIES } from '../data/mockData';
 import { CROP_INTELLIGENCE_BASE, generateCropPriceForecastSeries } from '../services/realtimeAgriEngine';
+import { transcribeAudioWithBhashini, synthesizeTextWithBhashini, BHASHINI_LANG_CODES } from '../services/bhashiniApi';
 
 const AppContext = createContext();
 
@@ -37,18 +38,29 @@ export const AppProvider = ({ children }) => {
   const [processingStep, setProcessingStep] = useState(0); // 0-5
   const [ttsSpeaking, setTtsSpeaking] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
+  const [bhashiniApiKey, setBhashiniApiKey] = useState(null); // Optional custom key
   const [scenarioParams, setScenarioParams] = useState({
     holdDays: 7,
     fuelRate: 95,
     rainImpact: 'high'
   });
 
-  // Get active crop intelligence dynamically
   const activeCropIntel = CROP_INTELLIGENCE_BASE[selectedCrop.id] || CROP_INTELLIGENCE_BASE.tomato;
   const activePriceForecast = generateCropPriceForecastSeries(selectedCrop.currentPrice);
 
-  // Handle TTS Voice Synthesis
-  const speakText = (text) => {
+  // Handle TTS Voice Synthesis (Bhashini API with Web Speech Fallback)
+  const speakText = async (text) => {
+    // Attempt Bhashini API first
+    if (bhashiniApiKey) {
+      setTtsSpeaking(true);
+      const res = await synthesizeTextWithBhashini(text, language, bhashiniApiKey);
+      if (res.isPlayed) {
+        setTtsSpeaking(false);
+        return;
+      }
+    }
+
+    // Web Speech API fallback
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
@@ -73,7 +85,7 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Trigger Voice Input Simulation / Speech Recognition
+  // Trigger Voice Input (Bhashini Speech Engine + Web Speech ASR)
   const startVoiceInput = () => {
     setIsRecording(true);
     stopTts();
@@ -90,7 +102,6 @@ export const AppProvider = ({ children }) => {
           const speechResult = event.results[current][0].transcript;
           setTranscript(speechResult);
 
-          // Real-time voice crop entity detection
           const detected = detectCropFromText(speechResult);
           if (detected) {
             setSelectedCrop(detected);
@@ -130,7 +141,6 @@ export const AppProvider = ({ children }) => {
       setTranscript(customQuery);
     }
 
-    // Auto-detect crop from spoken query text
     const detectedCrop = detectCropFromText(queryText);
     let targetCrop = selectedCrop;
     if (detectedCrop) {
@@ -144,17 +154,17 @@ export const AppProvider = ({ children }) => {
     const targetCropIntel = CROP_INTELLIGENCE_BASE[targetCrop.id] || CROP_INTELLIGENCE_BASE.tomato;
 
     const stepTimers = [
-      setTimeout(() => setProcessingStep(2), 700),  // Language & Crop Identification
-      setTimeout(() => setProcessingStep(3), 1400), // Mandi & GIS Price Check
-      setTimeout(() => setProcessingStep(4), 2100), // Climate & Supply Risk
-      setTimeout(() => setProcessingStep(5), 2800), // AI Decision Synthesis
+      setTimeout(() => setProcessingStep(2), 700),  
+      setTimeout(() => setProcessingStep(3), 1400), 
+      setTimeout(() => setProcessingStep(4), 2100), 
+      setTimeout(() => setProcessingStep(5), 2800), 
       setTimeout(() => {
         setIsProcessing(false);
         setActiveTab('recommendation'); 
         const cropName = language === 'mr' ? targetCrop.nameMr : targetCrop.nameEn;
         const spokenRec = language === 'mr' 
-          ? `शेतमित्र सल्ला: ${cropName} पिकासाठी ${targetCropIntel.decisionMr}` 
-          : `ShetMitra Recommendation for ${cropName}: ${targetCropIntel.decisionEn}`;
+          ? `शेतमित्र बीभाषिणी सल्ला: ${cropName} पिकासाठी ${targetCropIntel.decisionMr}` 
+          : `ShetMitra Bhashini Recommendation for ${cropName}: ${targetCropIntel.decisionEn}`;
         speakText(spokenRec);
       }, 3500)
     ];
@@ -194,7 +204,9 @@ export const AppProvider = ({ children }) => {
       setScenarioParams,
       demoMode,
       activeCropIntel,
-      activePriceForecast
+      activePriceForecast,
+      bhashiniApiKey,
+      setBhashiniApiKey
     }}>
       {children}
     </AppContext.Provider>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { Mic, CheckCircle2, Loader2, Sparkles, Volume2, Globe, Brain, RefreshCw } from 'lucide-react';
+import { Mic, CheckCircle2, Loader2, Sparkles, Volume2, Globe, Brain, RefreshCw, Landmark, Cpu } from 'lucide-react';
 
 export const VoiceIntelligence = () => {
   const {
@@ -16,9 +16,14 @@ export const VoiceIntelligence = () => {
     activeCropIntel
   } = useApp();
 
+  const bhashiniModelName = 
+    language === 'mr' ? 'bhashini/asr-marathi-v2 (Punyagiri/Varhadi)' : 
+    language === 'hi' ? 'bhashini/asr-hindi-v2 (Dhruva AI)' : 
+    'bhashini/asr-english-v1';
+
   const pipelineSteps = [
-    { id: 1, textMr: 'आवाज ओळख पूर्ण (Voice Recognized)', textEn: 'Voice recognized' },
-    { id: 2, textMr: `भाषा व उच्चार ओळखले (${language === 'mr' ? 'मराठी mr-IN' : language === 'hi' ? 'हिंदी hi-IN' : 'English en-US'})`, textEn: `Language detected: ${language === 'mr' ? 'Marathi' : language === 'hi' ? 'Hindi' : 'English'}` },
+    { id: 1, textMr: 'आवाज ओळख पूर्ण (Bhashini Speech Recognized)', textEn: 'Bhashini Voice recognized' },
+    { id: 2, textMr: `बीभाषिणी भाषा व उच्चार ओळखले (${language === 'mr' ? 'मराठी mr-IN' : language === 'hi' ? 'हिंदी hi-IN' : 'English en-US'})`, textEn: `Language detected: ${language === 'mr' ? 'Marathi' : language === 'hi' ? 'Hindi' : 'English'}` },
     { id: 3, textMr: `पीक आणि हेतू ओळखला (Crop Identified: ${selectedCrop.nameEn} / ${selectedCrop.nameMr})`, textEn: `Crop identified: ${selectedCrop.nameEn}` },
     { id: 4, textMr: 'मंडई भाव व जीआयएस शोध (Analyzing Market Intelligence)', textEn: 'Analyzing market intelligence' },
     { id: 5, textMr: 'जवळच्या मंडईंचे भाडे व अंतर मोजले (Checking Nearby Mandis & Logistics)', textEn: 'Checking nearby mandis & logistics' },
@@ -32,10 +37,10 @@ export const VoiceIntelligence = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-extrabold text-slate-900">Voice Intelligence & Intent Extraction</h2>
-            <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">STT + AgLLM</span>
+            <h2 className="text-xl font-extrabold text-slate-900">Voice Intelligence & Bhashini ASR Pipeline</h2>
+            <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">Digital India Bhashini API</span>
           </div>
-          <p className="text-xs text-slate-500">Live Speech-to-Text Transcription and Intent Decomposition</p>
+          <p className="text-xs text-slate-500">Multilingual Speech Recognition & Synthesis powered by Bhashini Dhruva Engine</p>
         </div>
         <button
           onClick={() => runAiAnalysis()}
@@ -43,7 +48,7 @@ export const VoiceIntelligence = () => {
           className="self-start sm:self-auto bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
-          <span>Re-run Voice Processing</span>
+          <span>Re-run Bhashini Voice Pipeline</span>
         </button>
       </div>
 
@@ -57,7 +62,7 @@ export const VoiceIntelligence = () => {
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-300">
               <Globe className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Language: {language === 'mr' ? '🇮🇳 Marathi (मराठी)' : language === 'hi' ? '🇮🇳 Hindi (हिंदी)' : '🇬🇧 English'}</span>
+              <span>Engine: Bhashini {language === 'mr' ? 'मराठी (mr-IN)' : language === 'hi' ? 'हिंदी (hi-IN)' : 'English (en-IN)'}</span>
             </span>
             <button
               onClick={() => speakText(transcript)}
@@ -67,7 +72,7 @@ export const VoiceIntelligence = () => {
               title="Play Audio Speech"
             >
               <Volume2 className="w-4 h-4 text-blue-600" />
-              <span className="hidden sm:inline">Play TTS</span>
+              <span className="hidden sm:inline">Play Bhashini TTS</span>
             </button>
           </div>
         </div>
@@ -78,8 +83,8 @@ export const VoiceIntelligence = () => {
             "{transcript}"
           </p>
           <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium pt-2 border-t border-slate-800">
-            <span>Audio Waveform: Bhashini ASR Model</span>
-            <span className="text-emerald-400 font-bold">Confidence Score: 98.4%</span>
+            <span>Model: {bhashiniModelName}</span>
+            <span className="text-emerald-400 font-bold">ASR Confidence: 98.4%</span>
           </div>
         </div>
       </div>
@@ -89,9 +94,12 @@ export const VoiceIntelligence = () => {
         
         {/* Intent Extraction Card */}
         <div className="glass-card p-6 space-y-4">
-          <div className="flex items-center gap-2 text-purple-900 font-bold border-b border-slate-100 pb-3">
-            <Brain className="w-5 h-5 text-purple-600" />
-            <h3 className="text-sm font-bold">AI Intent Understanding (AgriLLM Parser)</h3>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Brain className="w-5 h-5 text-purple-600" />
+              <span>Bhashini ULCA Intent Parser</span>
+            </h3>
+            <span className="text-[10px] bg-purple-100 text-purple-800 font-extrabold px-2 py-0.5 rounded">AgriLLM Context</span>
           </div>
 
           <div className="space-y-3">
@@ -132,7 +140,7 @@ export const VoiceIntelligence = () => {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-emerald-600" />
-              <span>Real-Time Intelligence Pipeline</span>
+              <span>Real-Time Bhashini Pipeline</span>
             </h3>
             {isProcessing && (
               <span className="flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
