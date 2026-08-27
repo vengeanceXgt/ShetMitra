@@ -4,6 +4,28 @@ import { CROP_INTELLIGENCE_BASE, generateCropPriceForecastSeries } from '../serv
 
 const AppContext = createContext();
 
+export const detectCropFromText = (text) => {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  
+  if (lower.includes('कांदा') || lower.includes('प्याज') || lower.includes('onion')) {
+    return CROPS.find(c => c.id === 'onion');
+  }
+  if (lower.includes('बटाटा') || lower.includes('आलू') || lower.includes('potato')) {
+    return CROPS.find(c => c.id === 'potato');
+  }
+  if (lower.includes('कापूस') || lower.includes('कपास') || lower.includes('cotton')) {
+    return CROPS.find(c => c.id === 'cotton');
+  }
+  if (lower.includes('सोयाबीन') || lower.includes('soybean')) {
+    return CROPS.find(c => c.id === 'soybean');
+  }
+  if (lower.includes('टोमॅटो') || lower.includes('टमाटर') || lower.includes('tomato')) {
+    return CROPS.find(c => c.id === 'tomato');
+  }
+  return null;
+};
+
 export const AppProvider = ({ children }) => {
   const [selectedCrop, setSelectedCrop] = useState(CROPS[0]); // Default Tomato
   const [selectedLocation, setSelectedLocation] = useState(LOCATIONS[0]); // Default Pune
@@ -24,18 +46,6 @@ export const AppProvider = ({ children }) => {
   // Get active crop intelligence dynamically
   const activeCropIntel = CROP_INTELLIGENCE_BASE[selectedCrop.id] || CROP_INTELLIGENCE_BASE.tomato;
   const activePriceForecast = generateCropPriceForecastSeries(selectedCrop.currentPrice);
-
-  // Update transcript when crop changes
-  useEffect(() => {
-    const cropName = language === 'mr' ? selectedCrop.nameMr : language === 'hi' ? selectedCrop.nameHi : selectedCrop.nameEn;
-    if (language === 'mr') {
-      setTranscript(`${cropName} आता विकू का थांबू?`);
-    } else if (language === 'hi') {
-      setTranscript(`क्या मुझे ${cropName} अभी बेचना चाहिए या रुकना चाहिए?`);
-    } else {
-      setTranscript(`Should I sell my ${cropName.toLowerCase()} crop now or wait?`);
-    }
-  }, [selectedCrop, language]);
 
   // Handle TTS Voice Synthesis
   const speakText = (text) => {
@@ -79,6 +89,12 @@ export const AppProvider = ({ children }) => {
           const current = event.resultIndex;
           const speechResult = event.results[current][0].transcript;
           setTranscript(speechResult);
+
+          // Real-time voice crop entity detection
+          const detected = detectCropFromText(speechResult);
+          if (detected) {
+            setSelectedCrop(detected);
+          }
         };
         
         recognition.onend = () => {
@@ -109,24 +125,36 @@ export const AppProvider = ({ children }) => {
 
   // Run Step-by-Step AI Processing Pipeline
   const runAiAnalysis = (customQuery = null) => {
+    const queryText = customQuery || transcript;
     if (customQuery) {
       setTranscript(customQuery);
     }
+
+    // Auto-detect crop from spoken query text
+    const detectedCrop = detectCropFromText(queryText);
+    let targetCrop = selectedCrop;
+    if (detectedCrop) {
+      targetCrop = detectedCrop;
+      setSelectedCrop(detectedCrop);
+    }
+
     setIsProcessing(true);
     setProcessingStep(1);
 
+    const targetCropIntel = CROP_INTELLIGENCE_BASE[targetCrop.id] || CROP_INTELLIGENCE_BASE.tomato;
+
     const stepTimers = [
-      setTimeout(() => setProcessingStep(2), 700),  
-      setTimeout(() => setProcessingStep(3), 1400), 
-      setTimeout(() => setProcessingStep(4), 2100), 
-      setTimeout(() => setProcessingStep(5), 2800), 
+      setTimeout(() => setProcessingStep(2), 700),  // Language & Crop Identification
+      setTimeout(() => setProcessingStep(3), 1400), // Mandi & GIS Price Check
+      setTimeout(() => setProcessingStep(4), 2100), // Climate & Supply Risk
+      setTimeout(() => setProcessingStep(5), 2800), // AI Decision Synthesis
       setTimeout(() => {
         setIsProcessing(false);
         setActiveTab('recommendation'); 
-        const cropName = language === 'mr' ? selectedCrop.nameMr : selectedCrop.nameEn;
+        const cropName = language === 'mr' ? targetCrop.nameMr : targetCrop.nameEn;
         const spokenRec = language === 'mr' 
-          ? `शेतमित्र एआय सल्ला: ${cropName} पिकासाठी ${activeCropIntel.decisionMr}` 
-          : `ShetMitra AI Recommendation for ${cropName}: ${activeCropIntel.decisionEn}`;
+          ? `शेतमित्र सल्ला: ${cropName} पिकासाठी ${targetCropIntel.decisionMr}` 
+          : `ShetMitra Recommendation for ${cropName}: ${targetCropIntel.decisionEn}`;
         speakText(spokenRec);
       }, 3500)
     ];

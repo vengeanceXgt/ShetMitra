@@ -12,13 +12,14 @@ export const VoiceIntelligence = () => {
     selectedLocation,
     runAiAnalysis,
     speakText,
-    ttsSpeaking
+    ttsSpeaking,
+    activeCropIntel
   } = useApp();
 
   const pipelineSteps = [
     { id: 1, textMr: 'आवाज ओळख पूर्ण (Voice Recognized)', textEn: 'Voice recognized' },
-    { id: 2, textMr: 'भाषा व उच्चार ओळखले (Language & Dialect Detected: Marathi)', textEn: 'Language detected: Marathi (mr-IN)' },
-    { id: 3, textMr: 'पीक आणि हेतू ओळखला (Crop Identified: Tomato, Intent: Sell vs Wait)', textEn: 'Crop identified: Tomato' },
+    { id: 2, textMr: `भाषा व उच्चार ओळखले (${language === 'mr' ? 'मराठी mr-IN' : language === 'hi' ? 'हिंदी hi-IN' : 'English en-US'})`, textEn: `Language detected: ${language === 'mr' ? 'Marathi' : language === 'hi' ? 'Hindi' : 'English'}` },
+    { id: 3, textMr: `पीक आणि हेतू ओळखला (Crop Identified: ${selectedCrop.nameEn} / ${selectedCrop.nameMr})`, textEn: `Crop identified: ${selectedCrop.nameEn}` },
     { id: 4, textMr: 'मंडई भाव व जीआयएस शोध (Analyzing Market Intelligence)', textEn: 'Analyzing market intelligence' },
     { id: 5, textMr: 'जवळच्या मंडईंचे भाडे व अंतर मोजले (Checking Nearby Mandis & Logistics)', textEn: 'Checking nearby mandis & logistics' },
     { id: 6, textMr: 'हवामान व पुरवठा जोखीम (Analyzing Climate & Supply Risk)', textEn: 'Analyzing climate & supply risk' }
@@ -31,7 +32,7 @@ export const VoiceIntelligence = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-extrabold text-slate-900">🎙️ Voice Intelligence & Intent Extraction</h2>
+            <h2 className="text-xl font-extrabold text-slate-900">Voice Intelligence & Intent Extraction</h2>
             <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">STT + AgLLM</span>
           </div>
           <p className="text-xs text-slate-500">Live Speech-to-Text Transcription and Intent Decomposition</p>
@@ -56,7 +57,7 @@ export const VoiceIntelligence = () => {
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-300">
               <Globe className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Language: 🇮🇳 Marathi (मराठी)</span>
+              <span>Language: {language === 'mr' ? '🇮🇳 Marathi (मराठी)' : language === 'hi' ? '🇮🇳 Hindi (हिंदी)' : '🇬🇧 English'}</span>
             </span>
             <button
               onClick={() => speakText(transcript)}
@@ -77,7 +78,7 @@ export const VoiceIntelligence = () => {
             "{transcript}"
           </p>
           <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium pt-2 border-t border-slate-800">
-            <span>Audio Waveform: Bhashini ASR Model (Marathi-8k-Agri)</span>
+            <span>Audio Waveform: Bhashini ASR Model</span>
             <span className="text-emerald-400 font-bold">Confidence Score: 98.4%</span>
           </div>
         </div>
@@ -98,28 +99,28 @@ export const VoiceIntelligence = () => {
             <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 flex items-center justify-between">
               <span className="text-xs text-purple-800 font-medium">Core Intent</span>
               <span className="text-xs font-black text-purple-950 bg-purple-200 px-2.5 py-1 rounded-md">
-                Crop Selling Decision (Sell vs Wait)
+                Crop Selling Decision
               </span>
             </div>
 
             <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
-              <span className="text-xs text-emerald-800 font-medium">Identified Crop</span>
+              <span className="text-xs text-emerald-800 font-medium">Detected Crop</span>
               <span className="text-xs font-black text-emerald-950 bg-emerald-200 px-2.5 py-1 rounded-md">
-                {selectedCrop.icon} {selectedCrop.nameEn} ({selectedCrop.nameMr})
+                {selectedCrop.nameEn} ({selectedCrop.nameMr})
               </span>
             </div>
 
             <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-center justify-between">
               <span className="text-xs text-blue-800 font-medium">Farmer Spatial Location</span>
               <span className="text-xs font-black text-blue-950 bg-blue-200 px-2.5 py-1 rounded-md">
-                📍 {selectedLocation.name}
+                {selectedLocation.name}
               </span>
             </div>
 
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
-              <span className="text-xs text-amber-800 font-medium">Decision Horizon</span>
+              <span className="text-xs text-amber-800 font-medium">Dynamic AI Signal</span>
               <span className="text-xs font-black text-amber-950 bg-amber-200 px-2.5 py-1 rounded-md">
-                Next 7 Days Window
+                {activeCropIntel.decisionEn}
               </span>
             </div>
 
