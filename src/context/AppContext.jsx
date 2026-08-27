@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CROPS, LOCATIONS, SAMPLE_QUERIES } from '../data/mockData';
 import { CROP_INTELLIGENCE_BASE, generateCropPriceForecastSeries } from '../services/realtimeAgriEngine';
-import { transcribeAudioWithBhashini, synthesizeTextWithBhashini, BHASHINI_LANG_CODES } from '../services/bhashiniApi';
+import { transcribeAudioWithBhashini, synthesizeTextWithBhashini } from '../services/bhashiniApi';
 
 const AppContext = createContext();
 
@@ -38,21 +38,24 @@ export const AppProvider = ({ children }) => {
   const [processingStep, setProcessingStep] = useState(0); // 0-5
   const [ttsSpeaking, setTtsSpeaking] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
-  const [bhashiniApiKey, setBhashiniApiKey] = useState(null); // Optional custom key
-  const [scenarioParams, setScenarioParams] = useState({
-    holdDays: 7,
-    fuelRate: 95,
-    rainImpact: 'high'
-  });
+  const [bhashiniApiKey, setBhashiniApiKey] = useState(null);
 
   const activeCropIntel = CROP_INTELLIGENCE_BASE[selectedCrop.id] || CROP_INTELLIGENCE_BASE.tomato;
   const activePriceForecast = generateCropPriceForecastSeries(selectedCrop.currentPrice);
 
-  // Handle TTS Voice Synthesis (Bhashini API with Web Speech Fallback)
+  // Robust Audio Speech Synthesis
   const speakText = async (text) => {
-    // Attempt Bhashini API first
+    if (!text) return;
+    
+    // Stop any ongoing speech first
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    setTtsSpeaking(true);
+
+    // Attempt Bhashini API if Key is provided
     if (bhashiniApiKey) {
-      setTtsSpeaking(true);
       const res = await synthesizeTextWithBhashini(text, language, bhashiniApiKey);
       if (res.isPlayed) {
         setTtsSpeaking(false);
@@ -60,22 +63,26 @@ export const AppProvider = ({ children }) => {
       }
     }
 
-    // Web Speech API fallback
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    if (language === 'mr') {
-      utterance.lang = 'mr-IN';
-    } else if (language === 'hi') {
-      utterance.lang = 'hi-IN';
+    // Native Web Speech API Synthesis
+    if ('speechSynthesis' in window) {
+      try {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-US';
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+
+        utterance.onstart = () => setTtsSpeaking(true);
+        utterance.onend = () => setTtsSpeaking(false);
+        utterance.onerror = () => setTtsSpeaking(false);
+
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn("Speech Synthesis error:", err);
+        setTtsSpeaking(false);
+      }
     } else {
-      utterance.lang = 'en-US';
+      setTtsSpeaking(false);
     }
-    utterance.rate = 0.95;
-    utterance.onstart = () => setTtsSpeaking(true);
-    utterance.onend = () => setTtsSpeaking(false);
-    utterance.onerror = () => setTtsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
   };
 
   const stopTts = () => {
@@ -85,26 +92,29 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Trigger Voice Input (Bhashini Speech Engine + Web Speech ASR)
+  // Robust Voice Microphone Listener
   const startVoiceInput = () => {
-    setIsRecording(true);
     stopTts();
-    
+    setIsRecording(true);
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
     if (SpeechRecognition) {
       try {
         const recognition = new SpeechRecognition();
         recognition.lang = language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-US';
         recognition.interimResults = true;
+        recognition.continuous = false;
         
         recognition.onresult = (event) => {
           const current = event.resultIndex;
           const speechResult = event.results[current][0].transcript;
-          setTranscript(speechResult);
-
-          const detected = detectCropFromText(speechResult);
-          if (detected) {
-            setSelectedCrop(detected);
+          if (speechResult) {
+            setTranscript(speechResult);
+            const detected = detectCropFromText(speechResult);
+            if (detected) {
+              setSelectedCrop(detected);
+            }
           }
         };
         
@@ -113,13 +123,16 @@ export const AppProvider = ({ children }) => {
           runAiAnalysis();
         };
 
-        recognition.onerror = () => {
+        recognition.onerror = (err) => {
+          console.warn("Speech recognition error, using fallback:", err);
+          setIsRecording(false);
           simulateVoiceFallback();
         };
 
         recognition.start();
-        return;
       } catch (e) {
+        console.warn("Speech recognition exception:", e);
+        setIsRecording(false);
         simulateVoiceFallback();
       }
     } else {
@@ -128,13 +141,19 @@ export const AppProvider = ({ children }) => {
   };
 
   const simulateVoiceFallback = () => {
+    setIsRecording(true);
     setTimeout(() => {
       setIsRecording(false);
-      runAiAnalysis();
-    }, 2500);
+      const cropName = language === 'mr' ? selectedCrop.nameMr : selectedCrop.nameEn;
+      const fallbackQuery = language === 'mr' 
+        ? `${cropName} आता विकू का थांबू?` 
+        : `Should I sell my ${cropName.toLowerCase()} crop now or wait?`;
+      setTranscript(fallbackQuery);
+      runAiAnalysis(fallbackQuery);
+    }, 1800);
   };
 
-  // Run Step-by-Step AI Processing Pipeline
+  // Run AI Processing Pipeline
   const runAiAnalysis = (customQuery = null) => {
     const queryText = customQuery || transcript;
     if (customQuery) {
@@ -154,19 +173,19 @@ export const AppProvider = ({ children }) => {
     const targetCropIntel = CROP_INTELLIGENCE_BASE[targetCrop.id] || CROP_INTELLIGENCE_BASE.tomato;
 
     const stepTimers = [
-      setTimeout(() => setProcessingStep(2), 700),  
-      setTimeout(() => setProcessingStep(3), 1400), 
-      setTimeout(() => setProcessingStep(4), 2100), 
-      setTimeout(() => setProcessingStep(5), 2800), 
+      setTimeout(() => setProcessingStep(2), 600),  
+      setTimeout(() => setProcessingStep(3), 1200), 
+      setTimeout(() => setProcessingStep(4), 1800), 
+      setTimeout(() => setProcessingStep(5), 2400), 
       setTimeout(() => {
         setIsProcessing(false);
         setActiveTab('recommendation'); 
         const cropName = language === 'mr' ? targetCrop.nameMr : targetCrop.nameEn;
         const spokenRec = language === 'mr' 
-          ? `शेतमित्र बीभाषिणी सल्ला: ${cropName} पिकासाठी ${targetCropIntel.decisionMr}` 
-          : `ShetMitra Bhashini Recommendation for ${cropName}: ${targetCropIntel.decisionEn}`;
+          ? `शेतमित्र सल्ला: ${cropName} पिकासाठी ${targetCropIntel.decisionMr}` 
+          : `ShetMitra Recommendation for ${cropName}: ${targetCropIntel.decisionEn}`;
         speakText(spokenRec);
-      }, 3500)
+      }, 3000)
     ];
 
     return () => stepTimers.forEach(clearTimeout);

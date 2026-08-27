@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Mic, CheckCircle2, Loader2, Sparkles, Volume2, Globe, Brain, RefreshCw, Landmark, Cpu } from 'lucide-react';
+import { Mic, CheckCircle2, Loader2, Sparkles, Volume2, Globe, Brain, RefreshCw, Landmark, Key, ShieldCheck } from 'lucide-react';
 
 export const VoiceIntelligence = () => {
   const {
@@ -13,22 +13,34 @@ export const VoiceIntelligence = () => {
     runAiAnalysis,
     speakText,
     ttsSpeaking,
-    activeCropIntel
+    activeCropIntel,
+    bhashiniApiKey,
+    setBhashiniApiKey
   } = useApp();
 
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [tempApiKey, setTempApiKey] = useState(bhashiniApiKey || '');
+
   const bhashiniModelName = 
-    language === 'mr' ? 'bhashini/asr-marathi-v2 (Punyagiri/Varhadi)' : 
+    language === 'mr' ? 'bhashini/asr-marathi-v2 (ULCA Dhruva)' : 
     language === 'hi' ? 'bhashini/asr-hindi-v2 (Dhruva AI)' : 
     'bhashini/asr-english-v1';
 
   const pipelineSteps = [
     { id: 1, textMr: 'आवाज ओळख पूर्ण (Bhashini Speech Recognized)', textEn: 'Bhashini Voice recognized' },
-    { id: 2, textMr: `बीभाषिणी भाषा व उच्चार ओळखले (${language === 'mr' ? 'मराठी mr-IN' : language === 'hi' ? 'हिंदी hi-IN' : 'English en-US'})`, textEn: `Language detected: ${language === 'mr' ? 'Marathi' : language === 'hi' ? 'Hindi' : 'English'}` },
+    { id: 2, textMr: `भाषा व उच्चार ओळखले (${language === 'mr' ? 'मराठी mr-IN' : language === 'hi' ? 'हिंदी hi-IN' : 'English en-US'})`, textEn: `Language detected: ${language === 'mr' ? 'Marathi' : language === 'hi' ? 'Hindi' : 'English'}` },
     { id: 3, textMr: `पीक आणि हेतू ओळखला (Crop Identified: ${selectedCrop.nameEn} / ${selectedCrop.nameMr})`, textEn: `Crop identified: ${selectedCrop.nameEn}` },
     { id: 4, textMr: 'मंडई भाव व जीआयएस शोध (Analyzing Market Intelligence)', textEn: 'Analyzing market intelligence' },
     { id: 5, textMr: 'जवळच्या मंडईंचे भाडे व अंतर मोजले (Checking Nearby Mandis & Logistics)', textEn: 'Checking nearby mandis & logistics' },
     { id: 6, textMr: 'हवामान व पुरवठा जोखीम (Analyzing Climate & Supply Risk)', textEn: 'Analyzing climate & supply risk' }
   ];
+
+  const handleTestAudio = () => {
+    const text = language === 'mr' 
+      ? `नमस्ते! शेतमित्र बीभाषिणी आवाज सहाय्यक चाचणी यशस्वी झाली आहे.` 
+      : `Hello! ShetMitra Bhashini voice speech test is successful.`;
+    speakText(text);
+  };
 
   return (
     <div className="space-y-6">
@@ -38,19 +50,64 @@ export const VoiceIntelligence = () => {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-extrabold text-slate-900">Voice Intelligence & Bhashini ASR Pipeline</h2>
-            <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">Digital India Bhashini API</span>
+            <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">Digital India Bhashini Engine</span>
           </div>
-          <p className="text-xs text-slate-500">Multilingual Speech Recognition & Synthesis powered by Bhashini Dhruva Engine</p>
+          <p className="text-xs text-slate-500">Multilingual Speech Recognition & Synthesis powered by Bhashini Dhruva Gateway</p>
         </div>
-        <button
-          onClick={() => runAiAnalysis()}
-          disabled={isProcessing}
-          className="self-start sm:self-auto bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
-          <span>Re-run Bhashini Voice Pipeline</span>
-        </button>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1.5"
+          >
+            <Key className="w-3.5 h-3.5 text-purple-600" />
+            <span>{bhashiniApiKey ? 'Bhashini API Key Set' : 'Configure Bhashini Key'}</span>
+          </button>
+
+          <button
+            onClick={() => runAiAnalysis()}
+            disabled={isProcessing}
+            className="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
+            <span>Run Speech Pipeline</span>
+          </button>
+        </div>
       </div>
+
+      {/* BHASHINI API KEY CONFIGURATION MODAL BAR */}
+      {showApiKeyInput && (
+        <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-extrabold text-xs text-purple-950 flex items-center gap-2">
+              <Key className="w-4 h-4 text-purple-700" />
+              <span>Enter Optional Bhashini MeitY Authorization API Key</span>
+            </h3>
+            <span className="text-[10px] bg-purple-200 text-purple-900 font-bold px-2 py-0.5 rounded">Optional Custom Gateway</span>
+          </div>
+          <p className="text-[11px] text-purple-800 leading-relaxed font-medium">
+            If you have a production MeitY Bhashini API authorization key (`https://dhruva-api.bhashini.gov.in`), paste it below to direct speech calls to your private ULCA pipeline.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              placeholder="Paste Bhashini Dhruva Authorization Key..."
+              value={tempApiKey}
+              onChange={(e) => setTempApiKey(e.target.value)}
+              className="flex-1 px-3 py-1.5 text-xs font-mono bg-white border border-purple-300 rounded-lg outline-none"
+            />
+            <button
+              onClick={() => {
+                setBhashiniApiKey(tempApiKey || null);
+                setShowApiKeyInput(false);
+              }}
+              className="bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-4 py-1.5 rounded-lg"
+            >
+              Save Key
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Live Audio Transcription Display Card */}
       <div className="glass-card p-6 border-l-4 border-l-blue-600 space-y-4">
@@ -62,17 +119,17 @@ export const VoiceIntelligence = () => {
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-300">
               <Globe className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Engine: Bhashini {language === 'mr' ? 'मराठी (mr-IN)' : language === 'hi' ? 'हिंदी (hi-IN)' : 'English (en-IN)'}</span>
+              <span>Language: {language === 'mr' ? 'Marathi (mr-IN)' : language === 'hi' ? 'Hindi (hi-IN)' : 'English (en-IN)'}</span>
             </span>
+            
             <button
-              onClick={() => speakText(transcript)}
-              className={`p-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1 ${
-                ttsSpeaking ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              onClick={handleTestAudio}
+              className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all ${
+                ttsSpeaking ? 'bg-amber-500 text-white animate-pulse' : 'bg-emerald-700 hover:bg-emerald-800 text-white'
               }`}
-              title="Play Audio Speech"
             >
-              <Volume2 className="w-4 h-4 text-blue-600" />
-              <span className="hidden sm:inline">Play Bhashini TTS</span>
+              <Volume2 className="w-4 h-4" />
+              <span>{ttsSpeaking ? 'Speaking Audio...' : 'Test Speech Sound'}</span>
             </button>
           </div>
         </div>
@@ -84,7 +141,7 @@ export const VoiceIntelligence = () => {
           </p>
           <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium pt-2 border-t border-slate-800">
             <span>Model: {bhashiniModelName}</span>
-            <span className="text-emerald-400 font-bold">ASR Confidence: 98.4%</span>
+            <span className="text-emerald-400 font-bold">Speech Engine Status: Active</span>
           </div>
         </div>
       </div>
